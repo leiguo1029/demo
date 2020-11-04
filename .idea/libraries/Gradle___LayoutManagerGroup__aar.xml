@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: :LayoutManagerGroup:@aar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a2d56110522339b44beb13268ff4a859/LayoutManagerGroup/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a2d56110522339b44beb13268ff4a859/LayoutManagerGroup/res" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a2d56110522339b44beb13268ff4a859/LayoutManagerGroup/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

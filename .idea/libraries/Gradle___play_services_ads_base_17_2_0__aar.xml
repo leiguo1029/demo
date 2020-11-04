@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: :play-services-ads-base-17.2.0:@aar">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/build/intermediates/exploded-aar/play-services-ads-base-17.2.0/res" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/78fb9e70dc8b21c1e7ff026bdd0ca5cf/play-services-ads-base-17.2.0/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/78fb9e70dc8b21c1e7ff026bdd0ca5cf/play-services-ads-base-17.2.0/AndroidManifest.xml" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/78fb9e70dc8b21c1e7ff026bdd0ca5cf/play-services-ads-base-17.2.0/res" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="Gradle: :mopub-sdk-rewardedvideo-5.8.0:@aar">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/build/intermediates/exploded-aar/mopub-sdk-rewardedvideo-5.8.0/res" />
+      <root url="jar://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a92adccdb55bcf8fef39b41898b6ff9a/mopub-sdk-rewardedvideo-5.8.0/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a92adccdb55bcf8fef39b41898b6ff9a/mopub-sdk-rewardedvideo-5.8.0/AndroidManifest.xml" />
+      <root url="file://$USER_HOME$/.gradle/caches/transforms-2/files-2.1/a92adccdb55bcf8fef39b41898b6ff9a/mopub-sdk-rewardedvideo-5.8.0/res" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
