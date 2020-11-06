@@ -23,7 +23,7 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-        callInterface.cpp fake_dlfcn.c)
+        callInterface.cpp fake_dlfcn.c callJavaMethod.cpp)
 
 add_library(dobby STATIC IMPORTED)
 set_target_properties(dobby

@@ -5,36 +5,37 @@
 #include <asm-arm-unistd.h>
 #include <android/log.h>
 #include <sys/system_properties.h>
+#include <linux/fcntl.h>
 #include "include/dobby.h"
 #include "include/asm-arm-unistd.h"
 #include "include/common-strs.h"
+#include "include/common-data.h"
+#include "include/callJavaMethod.h"
+
+using namespace std;
 
 #define TAG1 "adsdkhook"
 #define TAG2 "nms_decStr"
 #define TAG3 "nms_syscall"
 #define TAG4 "nms_sysprop"
+#define TAG5 "nms_enc"
 #define LOGD(tag,fmt,args...) __android_log_print(ANDROID_LOG_DEBUG, (const char*)tag, (const char *) fmt, ##args)
 
 extern "C" void *fake_dlopen(const char *libpath, int flags);
 extern "C" void *fake_dlsym(void *handle, const char *name);
 
-struct ctx {
-    void *load_addr;
-    void *dynstr;
-    void *dynsym;
-    void *symtab;
-    void* strtab;
-    int nsymtabs;
-    int nsyms;
-    off_t bias;
-};
 
+
+int fd_array[MAX_SIZE] = {0};
+jobject g_DIM;
 ctx* nms_handle = nullptr;
 
 long (*ori_syscall)(long,...);
 long __attribute((naked,pure)) fake_syscall(long number, ...){
 
 }
+
+
 
 void* (*ori_dlopen)(char*,int);
 void* fake_dlopen_1(char* libPath,int mode){
@@ -57,80 +58,120 @@ void copySyscallArgsToStack(va_list args,int* stack,int copySize){
 
 int (*ori_nms_syscall)(int cmd,int,int,int,int,int,int,int);
 int fake_nms_syscall(int cmd,...){
-    va_list args_0,args;
-    va_start(args_0,cmd);
-    int stack[7];
-    copySyscallArgsToStack(args_0,stack,7);
-    va_end(args_0);
 
-    va_start(args,cmd);
+    va_list args_0;
+    va_start(args_0,cmd);
+    int args[7];
+    copySyscallArgsToStack(args_0,args,7);
+    va_end(args_0);
 
     int realCmd = cmd - 233;
     switch(realCmd){
+        case __NR_read:{
+            int fd = args[0];
+            if(fd == fd_array[INDEX_PROCSELFSTATUS]){
+                char* readBuf = (char*)args[1];
+                int readSize = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+                if(readSize>=0 && strstr(readBuf,"TracerPid") != 0){
+                    char tracerInfo[] = "TracerPid: 0";
+                    memcpy(readBuf,tracerInfo,strlen(tracerInfo));
+                    return strlen(tracerInfo);
+                }
+                return readSize;
+            }
+            break;
+        }
         case __NR_open:{
-            const char* path = va_arg(args,const char*);
+            const char* path = (const char*)args[0];
             LOGD(TAG3,"open: %s",path);
             break;
         }
+        case __NR_close:{
+            int fd = args[0];
+            if(fd == fd_array[INDEX_PROCSELFSTATUS]) fd_array[INDEX_PROCSELFSTATUS] = -1;
+            break;
+        }
         case __NR_openat:{
-            int fd = va_arg(args,int);
-            const char* path = va_arg(args,const char*);
+            int fd = args[0];
+            const char* path = (const char*)args[1];
             LOGD(TAG3,"openat: %s",path);
+
+            if(fd == AT_FDCWD && strcmp(path,"/proc/self/status") == 0){
+                int res_fd = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+                if(res_fd >= 0) fd_array[0] = res_fd;
+                return res_fd;
+            }
             break;
         }
         case __NR_openat2:{
-            int fd = va_arg(args,int);
-            const char* path = va_arg(args,const char*);
+            int fd = args[0];
+            const char* path = (const char*)args[1];
             LOGD(TAG3,"openat2: %s",path);
             break;
         }
         case __NR_faccessat:{
-            int fd = va_arg(args,int);
-            const char* path = va_arg(args,const char*);
+            int fd = args[0];
+            const char* path = (const char*)args[1];
             LOGD(TAG3,"faccessat: %s",path);
             char*** ppChars = (char***)faccessat_check_strs_array;
             while(*ppChars != nullptr){
                 char** pChars = *ppChars;
                 while(*pChars != nullptr){
                     char* str = *pChars;
-                    if(strcmp(path,str) == 0) return -1;
+                    if(strcmp(path,str) == 0){
+                        return -1;
+                    }
                     ++pChars;
                 }
                 ++ppChars;
             }
             break;
         }
+        case __NR_sysinfo:{
+            sysinfo* si = (sysinfo*)args[0];
+            int res = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+            if(res==0){
+
+                unsigned long ram = si->totalram;
+                unsigned long unitsize = si->mem_unit;
+
+                LOGD(TAG3,"sysinfo   ram: %uld,unitsize: %uld",ram,unitsize);
+
+                si->totalram = callLongMethod(g_DIM,"getRAM","()J");
+                si->mem_unit = 1;
+
+
+            }
+            return res;
+        }
 
         case __NR_stat64:{
-            const char* path = va_arg(args,const char*);
+            const char* path = (const char*)args[0];
             LOGD(TAG3,"stat64: %s",path);
             break;
         }
+
         case __NR_fstatat64:{
-            int fd = va_arg(args,int);
-            const char* path = va_arg(args,const char*);
+            int fd = args[0];
+            const char* path = (const char*)args[1];
             LOGD(TAG3,"fstatat64: %s",path);
             char*** ppChars = (char***)fstatat64_check_strs_array;
             while(*ppChars != nullptr){
                 char** pChars = *ppChars;
                 while(*pChars != nullptr){
                     char* str = *pChars;
-                    if(strcmp(path,str) == 0) return -1;
+                    if(strcmp(path,str) == 0){
+                        return -1;
+                    }
                     ++pChars;
                 }
                 ++ppChars;
             }
             break;
         }
-
-
-
         default:break;
     }
-
-    int result = ori_nms_syscall(cmd,stack[0],stack[1],stack[2],stack[3],stack[4],stack[5],stack[6]);
-    return result;
-
+    return ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
 }
 
 int (*ori_nms_sysprop_read) (char* __name, char* __value);
@@ -149,6 +190,26 @@ int fake_nms_sysprop_read(char* name, char* value){
     return ori_nms_sysprop_read(name,value);
 }
 
+int (*ori_nms_readLine)(int fd,char* buf,int max_size);
+int fake_nms_readLine(int fd,char* buf,int max_size){
+    int result = ori_nms_readLine(fd,buf,max_size);
+    if(fd == fd_array[INDEX_PROCSELFSTATUS]){
+        if(result >= 0 && strstr(buf,"TracerPid")){
+            LOGD(TAG1,"tracerBuf: %s",buf);
+            char tracerInfo[] = "TracerPid: 0";
+            memcpy(buf,tracerInfo,strlen(tracerInfo));
+            return strlen(tracerInfo);
+        }
+    }
+    return result;
+}
+
+int (*ori_nms_enc)(char* in,int inLen,char** pOut,int* pOutLen);
+int fake_nms_enc(char* in,int inLen,char** pOut,int* pOutLen){
+    LOGD(TAG5,"encData: %s",in);
+    return ori_nms_enc(in,inLen,pOut,pOutLen);
+}
+
 //hook android_dlopen_ext
 void* (*ori_dlopen_ext)(char*,int,void*);
 void* fake_dlopen_ext(char* libPath,int mode,void* extInfo){
@@ -162,6 +223,13 @@ void* fake_dlopen_ext(char* libPath,int mode,void* extInfo){
         DobbyHook(nms_syscall,(void*)fake_nms_syscall,(void**)&ori_nms_syscall);
         void* nms_sysprop_read = (char*)nms_handle->load_addr + 0x21cf;
         DobbyHook(nms_sysprop_read,(void*)fake_nms_sysprop_read,(void**)&ori_nms_sysprop_read);
+        //nms_read_line
+        void* nms_readLine = (char*)nms_handle->load_addr + 0x4429;
+        DobbyHook(nms_readLine,(void*)fake_nms_readLine,(void**)&ori_nms_readLine);
+
+        //nms_enc
+        void* nms_enc = (char*)nms_handle->load_addr + 0x5a69;
+        DobbyHook(nms_enc,(void*)fake_nms_enc,(void**)&ori_nms_enc);
     }
     return handle;
 }
@@ -177,8 +245,6 @@ int fake_system_property_get(char* name,char* value){
             return 0;
         }
         ++pStrs;
-
-        //system.load("get loading...");
     }
     return ori_system_property_get(name,value);
 }
@@ -201,6 +267,18 @@ void doWork(){
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,void* reserved){
     JNIEnv* env = NULL;
     vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
+
+    memset(fd_array,-1,sizeof(fd_array));
+
+    jclass cls = env->FindClass("com/fear1ess/manager/DeviceInfoManager");
+    jmethodID method = env->GetStaticMethodID(cls,"getInstance","()Lcom/fear1ess/manager/DeviceInfoManager;");
+    jobject o = env->CallStaticObjectMethod(cls,method);
+    g_DIM = env->NewGlobalRef(o);
+    env->DeleteLocalRef(cls);
+    env->DeleteLocalRef(o);
+    saveJavaVM(vm);
+
+
 
     doWork();
 

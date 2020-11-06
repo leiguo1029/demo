@@ -24,6 +24,6 @@ public class SettingSecureHooker {
         if(key.equals(Settings.Secure.ANDROID_ID)){
             return DeviceInfoManager.getInstance().getAndroidId();
         }
-        return (String) SandHook.callOriginByBackup(getString_Backup,cr,key);
+        return (String) SandHook.callOriginByBackup(getString_Backup,null,cr,key);
     }
 }

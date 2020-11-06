@@ -69,4 +69,6 @@ public class DeviceInfoManager {
         return 2500;
     }
 
+    public long getRAM() { return 10000000000L; }
+
 }

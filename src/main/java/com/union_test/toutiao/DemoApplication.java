@@ -1,7 +1,10 @@
 package com.union_test.toutiao;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.support.multidex.MultiDex;
 import android.support.multidex.MultiDexApplication;
@@ -46,21 +49,21 @@ public class DemoApplication extends MultiDexApplication {
         TraceService.sShouldStopService = false;
         DaemonEnv.startServiceMayBind(TraceService.class);
 
+        ContentResolver cr = getContentResolver();
+        Bundle bd = cr.call(Uri.parse("content://settings/system"),"GET_secure","android_id",null);
+        String adid = bd.getString("value");
+       // Log.d("adsdkdemo_log", "android_id: "+android_id);
+
+
         //load native hook module
         System.loadLibrary("ry02");
 
         //hook java api
         HookerManager.init();
 
-        TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
-        String imei = tm.getDeviceId();
-        Log.d("adsdkdemo_log", "imei: "+imei);
-
-        String model = Build.MODEL;
-        Log.d("adsdkdemo_log", "model: "+model);
-
-        String android_id = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        Log.d("adsdkdemo_log", "android_id: "+android_id);
+        Bundle bd2 = cr.call(Uri.parse("content://settings/system"),"GET_secure","android_id",null);
+      //  Log.d("adsdkdemo_log", "android_id: "+android_id);
+        adid = bd2.getString("value");
 
         //穿山甲SDK初始化
         //强烈建议在应用对应的Application#onCreate()方法中调用，避免出现content为null的异常
