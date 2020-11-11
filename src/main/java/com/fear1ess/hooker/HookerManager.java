@@ -1,6 +1,9 @@
 package com.fear1ess.hooker;
 
 import android.content.res.Resources;
+import android.location.LocationManager;
+import android.net.wifi.WifiManager;
+import android.view.Display;
 
 import com.swift.sandhook.SandHook;
 import com.swift.sandhook.wrapper.HookErrorException;
@@ -14,7 +17,11 @@ public class HookerManager {
             NetworkInterfaceHooker.class,
             OsBuildHooker.class,
             ResourcesHooker.class,
-            ContentResolverHooker.class
+            ContentResolverHooker.class,
+            DisplayHooker.class,
+            PowerProfileHooker.class,
+            WifiManagerHooker.class,
+            LocationManagerHooker.class
     };
 
     public static void init() {

@@ -23,6 +23,7 @@ public class ResourcesHooker {
         DeviceInfoManager dim = DeviceInfoManager.getInstance();
         dm.widthPixels = dim.getWidthPixels();
         dm.heightPixels = dim.getHeightPixels();
+        dm.densityDpi = dim.getDensityDpi();
         return dm;
     }
 }

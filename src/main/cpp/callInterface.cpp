@@ -6,6 +6,10 @@
 #include <android/log.h>
 #include <sys/system_properties.h>
 #include <linux/fcntl.h>
+#include <filesystem>
+#include <fstream>
+#include <unistd.h>
+#include <fcntl.h>
 #include "include/dobby.h"
 #include "include/asm-arm-unistd.h"
 #include "include/common-strs.h"
@@ -128,21 +132,64 @@ int fake_nms_syscall(int cmd,...){
             break;
         }
         case __NR_sysinfo:{
-            sysinfo* si = (sysinfo*)args[0];
+            struct sysinfo* si = (struct sysinfo*)args[0];
             int res = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
             if(res==0){
-
                 unsigned long ram = si->totalram;
                 unsigned long unitsize = si->mem_unit;
 
-                LOGD(TAG3,"sysinfo   ram: %uld,unitsize: %uld",ram,unitsize);
+                LOGD(TAG3,"sysinfo   ram: %uld,mem_unit: %uld",ram,unitsize);
 
                 si->totalram = callLongMethod(g_DIM,"getRAM","()J");
-                si->mem_unit = 1;
-
-
+                si->mem_unit = callLongMethod(g_DIM,"getMemUnit","()J");
             }
             return res;
+        }
+        case __NR_statfs64:{
+            const char* path = (const char*)args[0];
+            struct statfs* sf = (struct statfs*)args[2];
+            int res = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+            if(res != 0) return res;
+            if(strcmp(path,"/data") == 0){
+                sf->f_bsize = callLongMethod(g_DIM,"getDataDirSize","()J");
+                sf->f_blocks = callLongMethod(g_DIM,"getDataDirBlocks","()J");
+            }else if(strcmp(path,"/sdcard") == 0){
+                sf->f_bsize = callLongMethod(g_DIM,"getSdcardSize","()J");
+                sf->f_blocks = callLongMethod(g_DIM,"getSdcardBlocks","()J");
+            }
+            return res;
+        }
+
+        case __NR_uname:{
+            utsname* un = (utsname*)args[0];
+            int res = ori_nms_syscall(cmd,args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+            if(res != 0) return res;
+            getStringPropAndCopyToValue(un->sysname,"getUtsSysName");
+            getStringPropAndCopyToValue(un->nodename,"getUtsNodeName");
+            getStringPropAndCopyToValue(un->domainname,"getUtsDomainName");
+            getStringPropAndCopyToValue(un->machine,"getUtsMachine");
+            getStringPropAndCopyToValue(un->release,"getUtsRelease");
+            getStringPropAndCopyToValue(un->version,"getUtsVersion");
+            return res;
+        }
+
+        case __NR_socket:{
+            int domain = args[0];
+            int type = args[1];
+            int protocol = args[2];
+            if(domain == AF_NETLINK && type == SOCK_RAW && protocol == NETLINK_ROUTE){
+            }
+            break;
+        }
+
+        case __NR_bind:{
+            break;
+        }
+
+        case __NR_sendmsg:{
+            const msghdr* msg = (const msghdr*)args[1];
+            LOGD("1","2");
+            break;
         }
 
         case __NR_stat64:{
@@ -178,6 +225,18 @@ int (*ori_nms_sysprop_read) (char* __name, char* __value);
 
 int fake_nms_sysprop_read(char* name, char* value){
     LOGD(TAG4,"read property from nms: %s",name);
+    if(strcmp(name,"ro.build.version.sdk") == 0) return getIntPropAndCopyToValue(value,"getOsApi");
+    if(strcmp(name,"ro.product.brand") == 0) return getStringPropAndCopyToValue(value,"getBrand");
+    if(strcmp(name,"ro.product.model") == 0) return getStringPropAndCopyToValue(value,"getModel");
+    if(strcmp(name,"ro.product.manufacturer") == 0) return getStringPropAndCopyToValue(value,"getManufacturer");
+    if(strcmp(name,"ro.build.display.id") == 0) return getStringPropAndCopyToValue(value,"getDisplayId");
+    if(strcmp(name,"ro.build.version.release") == 0) return getStringPropAndCopyToValue(value,"getOsRelease");
+    if(strcmp(name,"ro.build.date.utc") == 0) return getStringPropAndCopyToValue(value,"getDataUtc");
+    if(strcmp(name,"ro.build.fingerprint") == 0) return getStringPropAndCopyToValue(value,"getFingerprint");
+    if(strcmp(name,"ro.product.board") == 0) return getStringPropAndCopyToValue(value,"getBoard");
+    if(strcmp(name,"ro.product.device") == 0) return getStringPropAndCopyToValue(value,"getDevice");
+    if(strcmp(name,"ro.product.name") == 0) return getStringPropAndCopyToValue(value,"getName");
+    if(strcmp(name,"ro.board.platform") == 0) return getStringPropAndCopyToValue(value,"getPlatform");
     char** pStrs = (char**)phoneState_sysprop_strs;
     while(*pStrs != nullptr){
         char* str = *pStrs;
@@ -207,12 +266,18 @@ int fake_nms_readLine(int fd,char* buf,int max_size){
 int (*ori_nms_enc)(char* in,int inLen,char** pOut,int* pOutLen);
 int fake_nms_enc(char* in,int inLen,char** pOut,int* pOutLen){
     LOGD(TAG5,"encData: %s",in);
+    /*
+    int fd = open("/sdcard/adsdk",O_RDWR|O_CREAT|O_APPEND,S_IRWXU);
+    write(fd,in,strlen(in));
+    write(fd,"\n\n",2);
+    close(fd);*/
     return ori_nms_enc(in,inLen,pOut,pOutLen);
 }
 
 //hook android_dlopen_ext
 void* (*ori_dlopen_ext)(char*,int,void*);
 void* fake_dlopen_ext(char* libPath,int mode,void* extInfo){
+
     LOGD(TAG1,"loadlibrary by android_dlopen_ext: %s",libPath);
     void* handle =  ori_dlopen_ext(libPath,mode,extInfo);
     if(strstr(libPath,"libnms.so")){
@@ -223,6 +288,7 @@ void* fake_dlopen_ext(char* libPath,int mode,void* extInfo){
         DobbyHook(nms_syscall,(void*)fake_nms_syscall,(void**)&ori_nms_syscall);
         void* nms_sysprop_read = (char*)nms_handle->load_addr + 0x21cf;
         DobbyHook(nms_sysprop_read,(void*)fake_nms_sysprop_read,(void**)&ori_nms_sysprop_read);
+
         //nms_read_line
         void* nms_readLine = (char*)nms_handle->load_addr + 0x4429;
         DobbyHook(nms_readLine,(void*)fake_nms_readLine,(void**)&ori_nms_readLine);
@@ -259,7 +325,7 @@ void doWork(){
         return;
     }
     DobbyHook((void*)dlopen_ext,(void*)fake_dlopen_ext,(void**)&ori_dlopen_ext);
-    DobbyHook((void*)(dlopen), (void*)fake_dlopen_1, (void**)&ori_dlopen);
+  //  DobbyHook((void*)(dlopen), (void*)fake_dlopen_1, (void**)&ori_dlopen);
     DobbyHook((void*)(system_property_get), (void*)fake_system_property_get, (void**)&ori_system_property_get);
    // DobbyHook((void*)(syscall), (void*)(fake_syscall), (void**)&ori_syscall);
 }
@@ -277,10 +343,14 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm,void* reserved){
     env->DeleteLocalRef(cls);
     env->DeleteLocalRef(o);
     saveJavaVM(vm);
-
-
-
     doWork();
+
+    char** p  = environ;
+    while(*p != nullptr){
+        char* str = *p;
+        LOGD(TAG1,"environ: %s",str);
+        ++p;
+    }
 
     return JNI_VERSION_1_6;
 }
