@@ -95,6 +95,7 @@ public abstract class DeviceInfoManager {
     public int getDensityDpi() {
         return 666;
     }
+    public int getDensity() { return 640; }
 
     public double getBatteryCapacity() { return 3880.0; }
 

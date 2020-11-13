@@ -24,6 +24,7 @@ public class ResourcesHooker {
         dm.widthPixels = dim.getWidthPixels();
         dm.heightPixels = dim.getHeightPixels();
         dm.densityDpi = dim.getDensityDpi();
+        dm.density = dim.getDensity();
         return dm;
     }
 }
